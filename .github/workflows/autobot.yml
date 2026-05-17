@@ -1,0 +1,55 @@
+name: Hourly Profile Update Engine
+
+on:
+#   schedule:
+#     - cron: '0 * * * *'       # Triggers automatically every hour
+  workflow_dispatch:
+    inputs:
+      script:
+        description: 'script to be executed'
+        required: true
+        default: 'naukri_script.py'
+        type: choice
+        options:
+          - naukri_script.py
+          - naukri_script2.py
+
+jobs:
+  execute-bot:
+    runs-on: ubuntu-latest
+    
+    # FORCES GITHUB TO EXECUTE ALL COMMANDS FROM INSIDE YOUR NAUKRI SUBFOLDER
+    defaults:
+      run:
+        working-directory: ./naukri
+
+    steps:
+    - name: Checkout Codebase
+      uses: actions/checkout@v4
+      with:
+        sparse-checkout: . # Checks out the root structure seamlessly
+
+    - name: Initialize Python Runtime
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install System Dependencies & Anti-Detect Libraries
+      run: |
+        pip install playwright playwright-extra playwright-extra-plugin-stealth
+        playwright install chromium
+        playwright install-deps chromium
+
+    - name: Run Profile Refresher Script
+      env:
+        NAUKRI_EMAIL: ${{ secrets.NAUKRI_EMAIL }}
+        NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
+      run: python ${{ github.event.inputs.script }}  # Now executes correctly because it's running inside /naukri
+
+    - name: Export Debug Artifacts on Failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: bot-error-screenshots
+        path: "naukri/*.png" # Looks for the debug images in the proper folder path
