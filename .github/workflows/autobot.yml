@@ -49,4 +49,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bot-error-screenshots
-          path: "naukri/*.png"
+          path: "**/*.png"
