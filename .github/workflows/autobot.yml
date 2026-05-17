@@ -8,7 +8,7 @@ on:
       script:
         description: 'script to be executed'
         required: true
-        default: 'naukri_script.py'
+        default: 'script.py'
         type: choice
         options:
           - naukri_script.py
@@ -18,38 +18,35 @@ jobs:
   execute-bot:
     runs-on: ubuntu-latest
     
-    # FORCES GITHUB TO EXECUTE ALL COMMANDS FROM INSIDE YOUR NAUKRI SUBFOLDER
     defaults:
       run:
         working-directory: ./naukri
 
+    # All steps must be indented relative to the job name above
     steps:
-    - name: Checkout Codebase
-      uses: actions/checkout@v4
-      with:
-        sparse-checkout: . # Checks out the root structure seamlessly
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
 
-    - name: Initialize Python Runtime
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-        cache: 'pip'
+      - name: Initialize Python Runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Install System Dependencies & Anti-Detect Libraries
-      run: |
-        pip install playwright playwright-extra playwright-extra-plugin-stealth
-        playwright install chromium
-        playwright install-deps chromium
+      - name: Install System Dependencies & Anti-Detect Libraries
+        run: |
+          pip install playwright playwright-extra playwright-extra-plugin-stealth
+          playwright install chromium
+          playwright install-deps chromium
 
-    - name: Run Profile Refresher Script
-      env:
-        NAUKRI_EMAIL: ${{ secrets.NAUKRI_EMAIL }}
-        NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
-      run: python ${{ github.event.inputs.script }}  # Now executes correctly because it's running inside /naukri
+      - name: Run Profile Refresher Script
+        env:
+          NAUKRI_EMAIL: ${{ secrets.NAUKRI_EMAIL }}
+          NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
+        run: python ${{ github.event.inputs.script }}
 
-    - name: Export Debug Artifacts on Failure
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: bot-error-screenshots
-        path: "naukri/*.png" # Looks for the debug images in the proper folder path
+      - name: Export Debug Artifacts on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bot-error-screenshots
+          path: "naukri/*.png"
