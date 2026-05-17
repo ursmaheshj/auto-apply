@@ -34,15 +34,42 @@ def run(playwright: Playwright) -> None:
         page.wait_for_load_state("networkidle")  # Wait for network to be idle
         page.wait_for_timeout(2000)  # Additional wait for dynamic content to load
         
-        # Try to find and click "View profile" with timeout and retry logic
+        # Debug: Print all links on the page
         print("Finding View profile link...")
+        print("Available links on page:")
+        links = page.get_by_role("link").all()
+        for i, link in enumerate(links):
+            try:
+                link_text = link.text_content()
+                print(f"  Link {i}: '{link_text}'")
+            except:
+                print(f"  Link {i}: (unable to read text)")
+        
+        # Try multiple selector strategies
         try:
-            page.get_by_role("link", name="View profile").click(timeout=10000)
+            print("Trying exact match 'View profile'...")
+            page.get_by_role("link", name="View profile").click(timeout=5000)
         except Exception as e:
-            print(f"Error clicking 'View profile': {e}")
-            # Try alternative selectors or approaches
-            page.wait_for_timeout(1000)
-            page.get_by_role("link", name="View profile").click()
+            print(f"  Failed: {e}")
+            try:
+                print("Trying partial match with 'profile'...")
+                page.get_by_role("link", name="profile", exact=False).click(timeout=5000)
+            except Exception as e2:
+                print(f"  Failed: {e2}")
+                try:
+                    print("Trying text search for 'View profile'...")
+                    page.get_by_text("View profile", exact=False).first.click(timeout=5000)
+                except Exception as e3:
+                    print(f"  Failed: {e3}")
+                    try:
+                        print("Trying href selector for profile...")
+                        page.locator("a[href*='profile']").first.click(timeout=5000)
+                    except Exception as e4:
+                        print(f"  Failed: {e4}")
+                        print("Taking screenshot to debug...")
+                        page.screenshot(path="debug_links.png")
+                        print("Screenshot saved as debug_links.png")
+                        raise Exception("Could not find View profile link with any selector")
         
         print("Waiting for profile page to load...")
         page.wait_for_load_state("load")  # Wait for profile page to load
