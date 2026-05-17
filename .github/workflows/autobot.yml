@@ -43,10 +43,12 @@ jobs:
           NAUKRI_EMAIL: ${{ secrets.NAUKRI_EMAIL }}
           NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
         run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" python ${{ github.event.inputs.script }}
+        continue-on-error: true
 
       - name: Export Debug Artifacts on Failure
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bot-error-screenshots
-          path: "**/*.png"
+          name: bot-debug-artifacts
+          path: ./naukri/
+          retention-days: 5

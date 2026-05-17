@@ -30,9 +30,19 @@ def run(playwright: Playwright) -> None:
         
         print("Clicking login button...")
         page.get_by_role("button", name="Login", exact=True).click()
-        page.wait_for_load_state("load")  # Wait for page to load after login
-        page.wait_for_load_state("networkidle")  # Wait for network to be idle
-        page.wait_for_timeout(2000)  # Additional wait for dynamic content to load
+        
+        # Wait for navigation after login
+        print("Waiting for page to load after login...")
+        try:
+            page.wait_for_load_state("domcontentloaded", timeout=30000)
+            print("Page loaded (domcontentloaded)")
+        except Exception as e:
+            print(f"DOMContentLoaded timeout: {e}")
+        
+        page.wait_for_timeout(3000)  # Wait for dynamic content to render
+        print(f"Current URL: {page.url}")
+        print("Taking screenshot after login...")
+        page.screenshot(path="after_login.png")
         
         # Debug: Print all links on the page
         print("Finding View profile link...")
@@ -95,10 +105,45 @@ def run(playwright: Playwright) -> None:
         print("Profile updated successfully!")
         
     except Exception as e:
+        print(f"\n{'='*60}")
         print(f"Error occurred: {type(e).__name__}: {e}")
-        # Take a screenshot for debugging
-        page.screenshot(path="error_screenshot.png")
-        print("Screenshot saved as error_screenshot.png")
+        print(f"{'='*60}")
+        print(f"Current URL: {page.url}")
+        print(f"Page title: {page.title()}")
+        
+        # Take multiple screenshots for debugging
+        print("Taking error screenshots...")
+        try:
+            page.screenshot(path="error_screenshot.png")
+            print("Screenshot saved as error_screenshot.png")
+        except Exception as ss_e:
+            print(f"Failed to save error_screenshot.png: {ss_e}")
+        
+        # Save page HTML for debugging
+        try:
+            with open("debug_page.html", "w", encoding="utf-8") as f:
+                f.write(page.content())
+            print("Page HTML saved as debug_page.html")
+        except Exception as html_e:
+            print(f"Failed to save HTML: {html_e}")
+        
+        # Dump all links
+        try:
+            links = page.get_by_role("link").all()
+            with open("debug_links.txt", "w", encoding="utf-8") as f:
+                f.write(f"Total links found: {len(links)}\n\n")
+                for i, link in enumerate(links):
+                    try:
+                        link_text = link.text_content()
+                        link_href = link.get_attribute("href")
+                        f.write(f"Link {i}: text='{link_text}', href='{link_href}'\n")
+                    except:
+                        f.write(f"Link {i}: (unable to read)\n")
+            print("Links dump saved as debug_links.txt")
+        except Exception as links_e:
+            print(f"Failed to dump links: {links_e}")
+        
+        print(f"{'='*60}\n")
     
     finally:
         print("Closing browser...")
