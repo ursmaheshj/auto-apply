@@ -1,4 +1,5 @@
 import os
+import sys
 from playwright.sync_api import Playwright, sync_playwright, expect
 
 
@@ -10,9 +11,52 @@ def run(playwright: Playwright) -> None:
         print("Error: NAUKRI_EMAIL and NAUKRI_PASSWORD environment variables must be set")
         return
     
-    browser = playwright.chromium.launch(headless=False)
-    context = browser.new_context()
+    # Launch browser with stealth measures to bypass Akamai bot detection
+    print("Launching browser with anti-bot measures...")
+    browser = playwright.chromium.launch(
+        headless=True,
+        args=[
+            '--disable-blink-features=AutomationControlled',
+            '--disable-dev-shm-usage',
+            '--no-sandbox',
+            '--disable-gpu',
+        ]
+    )
+    
+    # Create context with realistic user agent and headers
+    context = browser.new_context(
+        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        viewport={'width': 1920, 'height': 1080},
+        ignore_https_errors=True,
+        extra_http_headers={
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+        }
+    )
+    
     page = context.new_page()
+    
+    # Inject script to mask automation indicators
+    page.add_init_script("""
+        Object.defineProperty(navigator, 'webdriver', {
+            get: () => false,
+        });
+        
+        Object.defineProperty(navigator, 'plugins', {
+            get: () => [1, 2, 3, 4, 5],
+        });
+        
+        Object.defineProperty(navigator, 'languages', {
+            get: () => ['en-US', 'en'],
+        });
+    """)
     
     try:
         print("Navigating to Naukri...")
@@ -21,12 +65,27 @@ def run(playwright: Playwright) -> None:
         print("Clicking login link...")
         page.get_by_role("link", name="Login", exact=True).click()
         page.wait_for_load_state("domcontentloaded")
+        page.wait_for_timeout(1500)  # Human-like delay
         
         print("Entering credentials...")
-        page.get_by_role("textbox", name="Enter your active Email ID /").click()
-        page.get_by_role("textbox", name="Enter your active Email ID /").fill(email)
-        page.get_by_role("textbox", name="Enter your password").click()
-        page.get_by_role("textbox", name="Enter your password").fill(password)
+        email_field = page.get_by_role("textbox", name="Enter your active Email ID /")
+        email_field.click()
+        page.wait_for_timeout(300)  # Simulate typing delay
+        email_field.fill(email)
+        print(f"Entered email: {email}")
+        page.wait_for_timeout(500)
+        
+        password_field = page.get_by_role("textbox", name="Enter your password")
+        password_field.click()
+        page.wait_for_timeout(300)  # Simulate typing delay
+        password_field.fill(password)
+        print(f"Entered password: {'*' * len(password)}")
+        page.wait_for_timeout(800)
+        
+        # Take screenshot before login
+        print("Taking screenshot before login...")
+        page.screenshot(path="before_login_attempt.png")
+        page.wait_for_timeout(500)
         
         print("Clicking login button...")
         page.get_by_role("button", name="Login", exact=True).click()
@@ -43,6 +102,26 @@ def run(playwright: Playwright) -> None:
         print(f"Current URL: {page.url}")
         print("Taking screenshot after login...")
         page.screenshot(path="after_login.png")
+        
+        # Check for error messages
+        print("\nChecking for error messages...")
+        error_elements = page.locator("[class*='error'], [class*='alert'], [class*='message']").all()
+        if error_elements:
+            print(f"Found {len(error_elements)} potential error elements:")
+            for i, elem in enumerate(error_elements):
+                try:
+                    text = elem.text_content(timeout=1000)
+                    if text.strip():
+                        print(f"  [{i}] {text.strip()}")
+                except:
+                    pass
+        
+        # Check if still on login page or error page
+        if "login" in page.url.lower() or "error" in page.url.lower():
+            print("ERROR: Still on login page or error page!")
+            print(f"URL: {page.url}")
+            print("Login attempt failed. Check screenshots and error messages above.")
+            raise Exception("Login failed - still on login/error page")
         
         # Debug: Print all links on the page
         print("Finding View profile link...")
