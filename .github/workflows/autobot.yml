@@ -42,7 +42,7 @@ jobs:
         env:
           NAUKRI_EMAIL: ${{ secrets.NAUKRI_EMAIL }}
           NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
-        run: python ${{ github.event.inputs.script }}
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" python ${{ github.event.inputs.script }}
 
       - name: Export Debug Artifacts on Failure
         if: failure()
